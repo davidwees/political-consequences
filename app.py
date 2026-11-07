@@ -59,14 +59,15 @@ def load_avatars():
 
 avatars = load_avatars()
 
-if "submitted" not in st.session_state:
-    st.session_state.submitted = False
+# Track view mode in session state ("form" or "results")
+if "view_mode" not in st.session_state:
+    st.session_state.view_mode = "form"
 
 st.title("🔮 Locking In Predictions")
-st.markdown("Choose your prediction for each individual below and submit to see aggregate community results!")
+st.markdown("Choose your prediction for each individual below or view the live community results!")
 
 # --- FORM SECTION ---
-if not st.session_state.submitted:
+if st.session_state.view_mode == "form":
     with st.form(key="prediction_form"):
         st.subheader("Make Your Predictions")
         user_choices = {}
@@ -101,14 +102,18 @@ if not st.session_state.submitted:
         ]
         try:
             supabase.table("predictions").insert(records).execute()
-            st.session_state.submitted = True
+            st.session_state.view_mode = "results"
             st.rerun()
         except Exception as e:
             st.error(f"Failed to submit predictions: {e}")
 
+    # "See Results" button to view results without submitting
+    if st.button("📊 See Results Without Submitting", width="stretch"):
+        st.session_state.view_mode = "results"
+        st.rerun()
+
 # --- RESULTS SECTION ---
-if st.session_state.submitted:
-    st.success("🎉 Your predictions have been locked in!")
+elif st.session_state.view_mode == "results":
     st.subheader("📊 Community Predictions Overview")
     
     res = supabase.table("predictions").select("person_name, prediction").execute()
@@ -149,7 +154,10 @@ if st.session_state.submitted:
                     else:
                         st.info("No predictions yet.")
                 st.divider()
-    
-    if st.button("Submit Another Response"):
-        st.session_state.submitted = False
+    else:
+        st.info("No predictions submitted yet.")
+
+    # Return button to go back to the form
+    if st.button("✏️ Back to Predictions Form", width="stretch"):
+        st.session_state.view_mode = "form"
         st.rerun()
