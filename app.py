@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from PIL import Image
 from supabase import create_client, Client
 
 # --- PAGE CONFIGURATION ---
@@ -35,7 +36,21 @@ PEOPLE = [
 
 DEFAULT_OPTIONS = ["Prison", "Flees country", "Cuts deal"]
 
-# Session state to track if user submitted in this session
+# Helper function to extract individual avatars from sprite sheet
+@st.cache_data
+def load_avatars():
+    sprite_sheet = Image.open("figures_spritesheet.png")
+    avatars = {}
+    for idx, name in enumerate(PEOPLE):
+        row = idx // 2
+        col = idx % 2
+        # Each tile is 150x150
+        crop_box = (col * 150, row * 150, (col + 1) * 150, (row + 1) * 150)
+        avatars[name] = sprite_sheet.crop(crop_box)
+    return avatars
+
+avatars = load_avatars()
+
 if "submitted" not in st.session_state:
     st.session_state.submitted = False
 
@@ -48,35 +63,38 @@ if not st.session_state.submitted:
         st.subheader("Make Your Predictions")
         user_choices = {}
         
-        # Display figures in a 2-column grid to match the original layout
+        # Display in 2 columns
         cols = st.columns(2)
         for idx, person in enumerate(PEOPLE):
             col = cols[idx % 2]
             with col:
-                st.write(f"### {person}")
-                choice = st.radio(
-                    f"Select prediction for {person}:",
-                    options=DEFAULT_OPTIONS + ["Other (Custom)"],
-                    key=f"radio_{person}",
-                    label_visibility="collapsed"
-                )
-                
-                custom_val = ""
-                if choice == "Other (Custom)":
-                    custom_val = st.text_input(f"Custom outcome for {person}:", key=f"custom_{person}")
-                
-                user_choices[person] = custom_val.strip() if choice == "Other (Custom)" and custom_val.strip() else choice
+                img_col, input_col = st.columns([1, 2])
+                with img_col:
+                    st.image(avatars[person], width=120)
+                with input_col:
+                    st.write(f"### {person}")
+                    choice = st.radio(
+                        f"Select prediction for {person}:",
+                        options=DEFAULT_OPTIONS + ["Other (Custom)"],
+                        key=f"radio_{person}",
+                        label_visibility="collapsed"
+                    )
+                    
+                    custom_val = ""
+                    if choice == "Other (Custom)":
+                        custom_val = st.text_input(f"Custom outcome for {person}:", key=f"custom_{person}")
+                    
+                    user_choices[person] = custom_val.strip() if choice == "Other (Custom)" and custom_val.strip() else choice
+                st.divider()
 
         submit_button = st.form_submit_button(label="Submit Predictions", use_container_width=True)
 
     if submit_button:
-        # Prepare records for insertion
         records = [
             {"person_name": person, "prediction": outcome}
             for person, outcome in user_choices.items()
             if outcome
         ]
-        
         try:
             supabase.table("predictions").insert(records).execute()
             st.session_state.submitted = True
@@ -89,7 +107,6 @@ if st.session_state.submitted:
     st.success("🎉 Your predictions have been locked in!")
     st.subheader("📊 Community Predictions Overview")
     
-    # Fetch all records
     res = supabase.table("predictions").select("person_name, prediction").execute()
     df = pd.DataFrame(res.data)
     
@@ -100,24 +117,28 @@ if st.session_state.submitted:
             person_df = df[df["person_name"] == person]
             
             with col:
-                st.markdown(f"### {person}")
-                if not person_df.empty:
-                    counts = person_df["prediction"].value_counts().reset_index()
-                    counts.columns = ["Outcome", "Count"]
-                    
-                    fig = px.pie(
-                        counts, 
-                        names="Outcome", 
-                        values="Count", 
-                        title=f"{person} Outcomes",
-                        hole=0.3,
-                        color_discrete_sequence=px.colors.qualitative.Pastel
-                    )
-                    fig.update_traces(textposition='inside', textinfo='percent+label')
-                    fig.update_layout(showlegend=False, margin=dict(t=30, b=10, l=10, r=10))
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.info("No predictions logged yet for this figure.")
+                head_col, chart_col = st.columns([1, 2])
+                with head_col:
+                    st.image(avatars[person], width=100)
+                    st.markdown(f"**{person}**")
+                with chart_col:
+                    if not person_df.empty:
+                        counts = person_df["prediction"].value_counts().reset_index()
+                        counts.columns = ["Outcome", "Count"]
+                        
+                        fig = px.pie(
+                            counts, 
+                            names="Outcome", 
+                            values="Count", 
+                            hole=0.3,
+                            color_discrete_sequence=px.colors.qualitative.Pastel
+                        )
+                        fig.update_traces(textposition='inside', textinfo='percent+label')
+                        fig.update_layout(showlegend=False, margin=dict(t=10, b=10, l=10, r=10), height=200)
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.info("No predictions yet.")
+                st.divider()
     
     if st.button("Submit Another Response"):
         st.session_state.submitted = False
