@@ -87,7 +87,8 @@ if not st.session_state.submitted:
                     user_choices[person] = custom_val.strip() if choice == "Other (Custom)" and custom_val.strip() else choice
                 st.divider()
 
-        submit_button = st.form_submit_button(label="Submit Predictions", use_container_width=True)
+        # Fixed: Updated use_container_width=True to width="stretch"
+        submit_button = st.form_submit_button(label="Submit Predictions", width="stretch")
 
     if submit_button:
         records = [
@@ -135,7 +136,13 @@ if st.session_state.submitted:
                         )
                         fig.update_traces(textposition='inside', textinfo='percent+label')
                         fig.update_layout(showlegend=False, margin=dict(t=10, b=10, l=10, r=10), height=200)
-                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Fixed: Added unique key and updated width="stretch"
+                        st.plotly_chart(
+                            fig, 
+                            key=f"chart_{person}", 
+                            width="stretch"
+                        )
                     else:
                         st.info("No predictions yet.")
                 st.divider()
