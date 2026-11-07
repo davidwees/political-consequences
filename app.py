@@ -36,6 +36,14 @@ PEOPLE = [
 
 DEFAULT_OPTIONS = ["Prison", "Flees country", "Cuts deal", "Other"]
 
+# Explicit color mapping for consistent pie chart colors across all figures
+COLOR_MAP = {
+    "Prison": "#EF553B",        # Red / Coral
+    "Flees country": "#636EFA", # Blue
+    "Cuts deal": "#00CC96",     # Teal / Green
+    "Other": "#AB63FA"          # Purple
+}
+
 # Helper function to extract individual avatars from sprite sheet
 @st.cache_data
 def load_avatars():
@@ -127,7 +135,8 @@ if st.session_state.submitted:
                             names="Outcome", 
                             values="Count", 
                             hole=0.3,
-                            color_discrete_sequence=px.colors.qualitative.Pastel
+                            color="Outcome",
+                            color_discrete_map=COLOR_MAP
                         )
                         fig.update_traces(textposition='inside', textinfo='percent+label')
                         fig.update_layout(showlegend=False, margin=dict(t=10, b=10, l=10, r=10), height=200)
